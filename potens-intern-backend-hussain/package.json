@@ -1,0 +1,24 @@
+{
+  "name": "potens-intern-backend-hussain",
+  "version": "1.0.0",
+  "description": "Tamper-Evident Append-Only Log Service",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "test": "vitest run",
+    "verify": "node src/scripts/verify.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "pg": "^8.13.1",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "ulid": "^2.3.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}
