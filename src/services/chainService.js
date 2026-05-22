@@ -2,9 +2,28 @@ const crypto = require('crypto');
 const { ulid } = require('ulid');
 const pool = require('../db/pool');
 
+function normalizePayload(payload) {
+  if (Array.isArray(payload)) {
+    return payload.map((item) => (
+      typeof item === 'object' && item !== null ? normalizePayload(item) : item
+    ));
+  }
+
+  if (typeof payload !== 'object' || payload === null) {
+    return payload;
+  }
+
+  const sorted = {};
+  Object.keys(payload).sort().forEach((key) => {
+    sorted[key] = typeof payload[key] === 'object' && payload[key] !== null
+      ? normalizePayload(payload[key])
+      : payload[key];
+  });
+  return sorted;
+}
 // Fixed ordering keeps the same logical entry from producing different hashes across runtimes.
 function computeHash(data) {
-  const payload = JSON.parse(JSON.stringify(data.payload));
+  const payload = normalizePayload(JSON.parse(JSON.stringify(data.payload)));
 
   const orderedData = {
     ulid: data.ulid,
@@ -19,6 +38,7 @@ function computeHash(data) {
     .update(JSON.stringify(orderedData))
     .digest('hex');
 }
+
 
 // A single transaction and table lock prevent concurrent appenders from choosing the same predecessor.
 async function appendEntry({ actor, action, payload }) {
@@ -35,7 +55,8 @@ async function appendEntry({ actor, action, payload }) {
     const lastEntry = lastEntryResult.rows[0];
     const prev_hash = lastEntry ? lastEntry.entry_hash : null;
     const id = ulid();
-    const entry_hash = computeHash({ ulid: id, actor, action, payload, prev_hash });
+    const normalizedPayload = normalizePayload(JSON.parse(JSON.stringify(payload)));
+    const entry_hash = computeHash({ ulid: id, actor, action, payload: normalizedPayload, prev_hash });
 
     const insertResult = await client.query(
       `
@@ -43,7 +64,7 @@ async function appendEntry({ actor, action, payload }) {
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id, ulid, actor, action, payload, prev_hash, entry_hash, created_at
       `,
-      [id, actor, action, payload, prev_hash, entry_hash]
+      [id, actor, action, normalizedPayload, prev_hash, entry_hash]
     );
 
     await client.query('COMMIT');
@@ -121,4 +142,4 @@ async function verifyChain() {
   return { status: 'pass', total_checked: entries.length };
 }
 
-module.exports = { computeHash, appendEntry, verifyEntry, verifyChain };
+module.exports = { computeHash, normalizePayload, appendEntry, verifyEntry, verifyChain };

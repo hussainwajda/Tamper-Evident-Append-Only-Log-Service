@@ -1,4 +1,4 @@
-const { appendEntry, verifyChain, verifyEntry } = require('../../services/chainService');
+const { appendEntry, computeHash, verifyChain, verifyEntry } = require('../../services/chainService');
 const pool = require('../pool');
 
 async function runSeed() {
@@ -20,6 +20,22 @@ async function runSeed() {
       action: 'review_chain',
       payload: { scope: 'test-seed', approved: true },
     });
+
+    const entries = await pool.query('SELECT * FROM log_entries ORDER BY id ASC');
+    for (const entry of entries.rows) {
+      const recomputed = computeHash({
+        ulid: entry.ulid,
+        actor: entry.actor,
+        action: entry.action,
+        payload: entry.payload,
+        prev_hash: entry.prev_hash ?? null
+      });
+      console.log('Entry ID:', entry.id);
+      console.log('Stored hash:    ', entry.entry_hash);
+      console.log('Recomputed hash:', recomputed);
+      console.log('Match:', recomputed === entry.entry_hash);
+      console.log('---');
+    }
 
     const chainResult = await verifyChain();
     console.log('verifyChain result:', chainResult);
