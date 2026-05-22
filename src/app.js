@@ -18,4 +18,10 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.use('/api', require('./routes/log'));
+
+app.use((err, req, res, next) => {
+  res.status(500).json({ error: 'Internal server error', message: err.message });
+});
+
 module.exports = app;
